@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Escape Room Coding Game</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    text-align: center;
+    padding: 20px;
+}
+.container {
+    max-width: 750px;
+    margin: auto;
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+}
+h1, h2 { color: #38bdf8; }
+.question {
+    background: #020617;
+    padding: 15px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    margin-bottom: 15px;
+}
+input {
+    padding: 10px;
+    width: 70%;
+}
+button {
+    padding: 10px 20px;
+    background: #38bdf8;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 3px;
+}
+.correct { color: #22c55e; }
+.wrong { color: #ef4444; }
+.explanation {
+    background: #fbbf24;
+    color: #1f2937;
+    margin-top: 10px;
+    padding: 15px;
+    border-radius: 5px;
+    text-align: left;
+    font-weight: bold;
+    display: none;
+}
+#nextBtn { display: none; margin-top: 15px; }
+#optionsContainer button { width: 30%; }
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>🚪 Escape Room Coding Game</h1>
+<h2 id="roomTitle"></h2>
+
+<div id="questionBox" class="question"></div>
+
+<div id="optionsContainer"></div>
+
+<input id="answerInput" placeholder="Enter your answer">
+<br><br>
+<button id="submitBtn" onclick="submitAnswer()">Submit</button>
+<button id="nextBtn" onclick="nextQuestion()">Next Question</button>
+
+<div id="feedback"></div>
+<div id="explanation" class="explanation"></div>
+
+<p>Correct in Room: <span id="correctCount">0</span> / 5</p>
+<p>Score: <span id="score">0</span></p>
+</div>
+
+<script>
+// ===== Questions =====
+const questions = [
+  [ // Room 1
+    { text:"Output?\nint x=5; System.out.print(x++ + 2);", type:"text", answer:"7", explanation:"x++ uses 5 first → 5+2=7" },
+    { text:"Is Java platform-independent?", type:"yesno", options:["Yes","No"], answer:"Yes", explanation:"Java runs on JVM, so it is platform-independent." },
+    { text:"Which is a primitive type?", type:"mcq", options:["String","int","Array","Scanner"], answer:"int", explanation:"int is a primitive type in Java." },
+    { text:"Result of 7 / 2?", type:"text", answer:"3", explanation:"Integer division truncates decimals → 7/2 = 3" },
+    { text:"Java OR operator?", type:"text", answer:"||", explanation:"|| is the logical OR operator" },
+    { text:"Increment x by 1?", type:"text", answer:"x++", explanation:"x++ increments x by 1" },
+    { text:"Java main method syntax?", type:"text", answer:"public static void main(String[] args)", explanation:"Standard Java main method declaration" }
+  ],
+  [ // Room 2
+    { text:"How many times does this loop run?\nfor(int i=1;i<=4;i++)", type:"text", answer:"4", explanation:"i=1,2,3,4 → 4 times" },
+    { text:"Loop that runs at least once?", type:"mcq", options:["for","while","do-while","if"], answer:"do-while", explanation:"do-while runs at least once even if condition is false" },
+    { text:"Continue keyword skips current iteration. True or False?", type:"yesno", options:["Yes","No"], answer:"Yes", explanation:"continue skips current iteration" },
+    { text:"Best loop when count unknown?", type:"text", answer:"while", explanation:"while loop is best when count unknown" },
+    { text:"Keyword to stop loop?", type:"text", answer:"break", explanation:"break immediately exits the loop" },
+    { text:"Keyword to skip iteration?", type:"text", answer:"continue", explanation:"Use continue to skip current iteration" },
+    { text:"Loop to iterate fixed times?", type:"text", answer:"for", explanation:"Use for loop for fixed number of iterations" }
+  ],
+  [ // Room 3
+    { text:"Exception?\nint[] a=new int[3]; a[3]=5;", type:"text", answer:"ArrayIndexOutOfBoundsException", explanation:"Index 3 invalid for array of size 3" },
+    { text:"Error?\nint x=\"10\";", type:"text", answer:"type mismatch", explanation:"Cannot assign String to int" },
+    { text:"Fix if statement: if(x = 5)", type:"text", answer:"use ==", explanation:"Assignment (=) used instead of comparison (==)" },
+    { text:"Divide by zero exception?", type:"yesno", options:["Yes","No"], answer:"Yes", explanation:"Divide by zero → ArithmeticException" },
+    { text:"Error?\nString s=null; s.length();", type:"text", answer:"NullPointerException", explanation:"Calling method on null → NullPointerException" },
+    { text:"Checked exception example?", type:"text", answer:"IOException", explanation:"IOException is a checked exception" },
+    { text:"Unchecked exception example?", type:"text", answer:"ArithmeticException", explanation:"ArithmeticException is unchecked" }
+  ],
+  [ // Room 4
+    { text:"Declare int array size 10", type:"text", answer:"int[] arr=new int[10];", explanation:"int[] arr = new int[10];" },
+    { text:"Access last element of arr?", type:"text", answer:"arr[arr.length-1]", explanation:"Last element index = arr.length-1" },
+    { text:"Default double value?", type:"mcq", options:["0","0.0","null","undefined"], answer:"0.0", explanation:"Default value for double is 0.0" },
+    { text:"For-each loop syntax?", type:"text", answer:"for(int x:arr)", explanation:"for(int x:arr){...}" },
+    { text:"Copy array method?", type:"text", answer:"System.arraycopy()", explanation:"Use System.arraycopy(src,0,dest,0,length);" },
+    { text:"Default boolean value?", type:"text", answer:"false", explanation:"Default value of boolean is false" },
+    { text:"Array length property?", type:"text", answer:"arr.length", explanation:"Use arr.length to get array size" }
+  ]
+];
+
+// ===== Game Variables =====
+let room=0, score=0, correct=0;
+let asked=[], qIndex=0;
+
+// ===== Load Question =====
+function loadQuestion(){
+    document.getElementById("roomTitle").innerText="Room "+(room+1);
+    document.getElementById("explanation").style.display = "none";
+    document.getElementById("submitBtn").style.display = "inline-block";
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("answerInput").style.display = "inline-block";
+    document.getElementById("answerInput").disabled = false;
+    document.getElementById("optionsContainer").innerHTML = "";
+
+    if(!asked[room]) asked[room]=[];
+    if(asked[room].length >= questions[room].length){
+        alert("All questions answered in this room!");
+        return;
+    }
+
+    do {
+        qIndex = Math.floor(Math.random() * questions[room].length);
+    } while(asked[room].includes(qIndex));
+
+    asked[room].push(qIndex);
+
+    let q = questions[room][qIndex];
+    document.getElementById("questionBox").innerText = q.text;
+    document.getElementById("answerInput").value = "";
+
+    // Show options if yes/no or MCQ
+    if(q.type==="yesno" || q.type==="mcq"){
+        document.getElementById("answerInput").style.display="none";
+        q.options.forEach(opt=>{
+            let btn = document.createElement("button");
+            btn.innerText = opt;
+            btn.onclick = ()=>submitAnswer(opt);
+            document.getElementById("optionsContainer").appendChild(btn);
+        });
+    }
+}
+
+// ===== Submit Answer =====
+function submitAnswer(userInput){
+    let q = questions[room][qIndex];
+    let user = userInput || document.getElementById("answerInput").value.trim();
+    let feedbackEl = document.getElementById("feedback");
+    let explanationEl = document.getElementById("explanation");
+
+    if(user.toLowerCase() === q.answer.toLowerCase()){
+        score += 10; correct++;
+        feedbackEl.innerHTML = "<span class='correct'>✅ Correct!</span>";
+    } else {
+        score -= 2;
+        feedbackEl.innerHTML = "<span class='wrong'>❌ Incorrect!</span>";
+    }
+
+    explanationEl.innerHTML = "<strong>Correct Answer:</strong> "+q.answer+
+                              "<br><strong>Explanation:</strong> "+q.explanation;
+    explanationEl.style.display = "block";
+
+    document.getElementById("score").innerText = score;
+    document.getElementById("correctCount").innerText = correct;
+
+    document.getElementById("answerInput").disabled = true;
+    document.getElementById("submitBtn").style.display = "none";
+    document.getElementById("nextBtn").style.display = "inline-block";
+    document.getElementById("optionsContainer").innerHTML = "";
+}
+
+// ===== Next Question =====
+function nextQuestion(){
+    if(correct >= 5){  // only allow next room if 5 correct
+        room++;
+        correct = 0; // reset for next room
+        if(room >= questions.length){
+            document.querySelector(".container").innerHTML =
+            "<h1>🎉 You Escaped All Rooms!</h1><h2>Final Score: "+score+"</h2>";
+            return;
+        }
+        alert("Room " + (room) + " unlocked!");
+    }
+    loadQuestion(); // load next question (same room if less than 5 correct)
+}
+
+// ===== Initialize =====
+loadQuestion();
+</script>
+
+</body>
+</html>N
